@@ -17,5 +17,7 @@ jobs:
       - run: npm install
       - run: npm run typecheck
       - run: npm run build
+      - name: Validate administrative map schema
+        run: node --input-type=module -e "import('./dist/administrative-model.js').then(({ validateAdministrativeMap }) => { if (validateAdministrativeMap([], []).length !== 0) process.exit(1); const bad = [{ id: 'area-a', name: 'Area A', level: 'state-province', parentId: 'missing', authorityCode: null, geometryId: 'geom-a', validFrom: null, validTo: null, provenance: { source: 'test', version: '1', sourceFeatureId: 'a', license: 'test' }, tags: [] }]; if (!validateAdministrativeMap(bad, []).some((error) => error.includes('unknown parent'))) process.exit(1); console.log('Administrative map schema validation passed.'); }).catch((error) => { console.error(error); process.exit(1); })"
       - name: Validate generated 258-country catalog
         run: node --input-type=module -e "import('./dist/nation-catalog.js').then(async ({ loadAdmin0NationCatalog }) => { const catalog = await loadAdmin0NationCatalog(); if (catalog.length !== 258 || catalog.some((nation) => !nation.isPlayable)) process.exit(1); console.log('Loaded ' + catalog.length + ' playable nations; ' + catalog.filter((nation) => nation.politicalStatus === 'puppet').length + ' puppet states.'); }).catch((error) => { console.error(error); process.exit(1); })"
