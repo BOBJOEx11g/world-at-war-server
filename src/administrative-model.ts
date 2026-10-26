@@ -1,10 +1,6 @@
 /**
- * Geographic administrative units and game provinces.
- *
- * Administrative areas describe real-world political geography. Provinces are
- * the game's selectable simulation territories and may be derived from one or
- * more administrative areas. Keep these records separate from mutable game
- * state and keep geometry in versioned GeoJSON files.
+ * Lightweight geography metadata for World at War.
+ * Terrain tags describe the ground; they do not apply gameplay effects yet.
  */
 
 export type AdministrativeLevel =
@@ -15,59 +11,71 @@ export type AdministrativeLevel =
   | "local"
   | "historical-region";
 
+/** Reusable terrain labels; gameplay modifiers will be implemented with troops. */
+export const TERRAIN_TAGS = [
+  "rainforest",
+  "tropical-forest",
+  "temperate-forest",
+  "boreal-forest",
+  "woodland",
+  "plains",
+  "grassland",
+  "savanna",
+  "desert",
+  "semi-arid",
+  "scrubland",
+  "wetlands",
+  "swamp",
+  "mountains",
+  "highlands",
+  "hills",
+  "tundra",
+  "ice-snow",
+  "coastal",
+  "riverine",
+  "urban",
+] as const;
+
+export type TerrainTag = (typeof TERRAIN_TAGS)[number];
+
 export interface DataProvenance {
-  /** Dataset publisher or archival collection. */
   source: string;
-  /** Exact dataset release, snapshot, or version. */
   version: string;
-  /** Original feature ID/code, preserved for auditing. */
   sourceFeatureId: string;
-  /** License identifier or human-readable license name. */
   license: string;
-  /** Optional source URL for the exact release or feature collection. */
   sourceUrl?: string;
 }
 
 export interface AdministrativeAreaDefinition {
-  /** Stable internal ID; never use a display name as the primary key. */
   id: string;
   name: string;
   level: AdministrativeLevel;
-  /** Parent administrative unit, if one exists in this dataset. */
   parentId: string | null;
-  /** ISO 3166 code or other source authority code, when available. */
   authorityCode: string | null;
-  /** Geometry is stored separately, keyed by this ID. */
   geometryId: string;
-  /** Inclusive start date for which this unit is historically valid. */
   validFrom: string | null;
-  /** Exclusive end date; null means no recorded end date. */
   validTo: string | null;
   provenance: DataProvenance;
+  /** Physical terrain labels for this administrative area's geography. */
+  terrainTags: TerrainTag[];
   tags: string[];
 }
 
 export interface ProvinceAdjacency {
-  /** IDs of adjacent game provinces; sea connections are explicit. */
   provinceId: string;
   kind: "land" | "strait" | "sea";
-  /** Optional movement cost modifier, not a geographic distance. */
   movementCost: number;
 }
 
 export interface ProvinceMapRecord {
-  /** Stable scenario-specific province ID. */
   id: string;
   name: string;
-  /** Geometry ID resolves to an exact polygon/multipolygon in map data. */
   geometryId: string;
-  /** Administrative area this province was derived from, if applicable. */
   administrativeAreaId: string | null;
-  /** Country/nation owning the province at scenario start. */
   initialOwnerNationId: string | null;
-  /** Historical date used to determine ownership and boundaries. */
   referenceDate: string;
-  terrain: string;
+  /** One area may contain multiple terrain types; keep all applicable tags. */
+  terrainTags: TerrainTag[];
   isCoastal: boolean;
   strategicTags: string[];
   neighbors: ProvinceAdjacency[];
@@ -75,12 +83,24 @@ export interface ProvinceMapRecord {
 }
 
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
+const VALID_TERRAIN_TAGS = new Set<string>(TERRAIN_TAGS);
 
 function isValidDate(value: string): boolean {
   return ISO_DATE.test(value) && !Number.isNaN(Date.parse(`${value}T00:00:00Z`));
 }
 
-/** Validate hierarchy, date ranges, stable IDs, and adjacency references. */
+function validateTerrainTags(tags: readonly string[], label: string): string[] {
+  const errors: string[] = [];
+  const seen = new Set<string>();
+  for (const tag of tags) {
+    if (!VALID_TERRAIN_TAGS.has(tag)) errors.push(`${label} has unknown terrain tag "${tag}".`);
+    if (seen.has(tag)) errors.push(`${label} has duplicate terrain tag "${tag}".`);
+    seen.add(tag);
+  }
+  return errors;
+}
+
+/** Validate hierarchy, dates, terrain labels, stable IDs, and adjacency references. */
 export function validateAdministrativeMap(
   areas: readonly AdministrativeAreaDefinition[],
   provinces: readonly ProvinceMapRecord[],
@@ -99,6 +119,7 @@ export function validateAdministrativeMap(
         !area.provenance.sourceFeatureId.trim() || !area.provenance.license.trim()) {
       errors.push(`Administrative area ${area.id} is missing data provenance.`);
     }
+    errors.push(...validateTerrainTags(area.terrainTags, `Administrative area ${area.id}`));
     if (area.validFrom !== null && !isValidDate(area.validFrom)) {
       errors.push(`Administrative area ${area.id} has invalid validFrom date.`);
     }
@@ -115,9 +136,7 @@ export function validateAdministrativeMap(
     if (area.parentId !== null && !areaById.has(area.parentId)) {
       errors.push(`Administrative area ${area.id} references unknown parent ${area.parentId}.`);
     }
-    if (area.parentId === area.id) {
-      errors.push(`Administrative area ${area.id} cannot be its own parent.`);
-    }
+    if (area.parentId === area.id) errors.push(`Administrative area ${area.id} cannot be its own parent.`);
   }
 
   for (const province of provinces) {
@@ -125,9 +144,7 @@ export function validateAdministrativeMap(
     if (provinceById.has(province.id)) errors.push(`Duplicate province ID: ${province.id}`);
     provinceById.set(province.id, province);
     if (!province.geometryId.trim()) errors.push(`Province ${province.id} has no geometryId.`);
-    if (!isValidDate(province.referenceDate)) {
-      errors.push(`Province ${province.id} has invalid referenceDate.`);
-    }
+    if (!isValidDate(province.referenceDate)) errors.push(`Province ${province.id} has invalid referenceDate.`);
     if (province.administrativeAreaId !== null && !areaById.has(province.administrativeAreaId)) {
       errors.push(`Province ${province.id} references unknown administrative area ${province.administrativeAreaId}.`);
     }
@@ -135,10 +152,9 @@ export function validateAdministrativeMap(
         !province.provenance.sourceFeatureId.trim() || !province.provenance.license.trim()) {
       errors.push(`Province ${province.id} is missing data provenance.`);
     }
+    errors.push(...validateTerrainTags(province.terrainTags, `Province ${province.id}`));
     for (const neighbor of province.neighbors) {
-      if (neighbor.provinceId === province.id) {
-        errors.push(`Province ${province.id} cannot neighbor itself.`);
-      }
+      if (neighbor.provinceId === province.id) errors.push(`Province ${province.id} cannot neighbor itself.`);
       if (!Number.isFinite(neighbor.movementCost) || neighbor.movementCost < 0) {
         errors.push(`Province ${province.id} has an invalid neighbor movement cost.`);
       }
