@@ -1,5 +1,6 @@
 import { createServer } from "node:http";
 import { WebSocket, WebSocketServer } from "ws";
+import { ADMIN0_NATION_CATALOG } from "./nation-catalog.js";
 import {
   isClientMessage,
   PROTOCOL_VERSION,
@@ -22,7 +23,10 @@ const httpServer = createServer((request, response) => {
       status: "ok",
       service: "world-at-war-server",
       protocolVersion: PROTOCOL_VERSION,
-      worldLoaded: false
+      worldLoaded: false,
+      countryCatalogLoaded: true,
+      countryCount: ADMIN0_NATION_CATALOG.length,
+      playableNationCount: ADMIN0_NATION_CATALOG.filter((nation) => nation.isPlayable).length
     }));
     return;
   }
@@ -83,6 +87,7 @@ function sendError(socket: WebSocket, code: string, message: string): void {
 
 httpServer.listen(port, host, () => {
   console.log(`World at War server listening on http://${host}:${port}`);
+  console.log(`Natural Earth Admin 0 catalog loaded: ${ADMIN0_NATION_CATALOG.length} playable nations`);
   console.log(`WebSocket endpoint: ws://${host}:${port}/ws`);
 });
 
