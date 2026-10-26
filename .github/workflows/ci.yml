@@ -20,7 +20,7 @@ jobs:
       - name: Validate administrative map schema
         run: |
           node --input-type=module <<'NODE'
-          import { TERRAIN_TAGS, validateAdministrativeMap } from './dist/administrative-model.js';
+          import { BIOME_TAGS, TERRAIN_TAGS, validateAdministrativeMap } from './dist/administrative-model.js';
           if (validateAdministrativeMap([], []).length !== 0) {
             throw new Error('Empty administrative map should validate.');
           }
@@ -40,9 +40,17 @@ jobs:
           if (!validateAdministrativeMap([badArea], []).some((error) => error.includes('unknown parent'))) {
             throw new Error('Unknown parent reference was not rejected.');
           }
-          if (!TERRAIN_TAGS.includes('rainforest') || !TERRAIN_TAGS.includes('desert') || !TERRAIN_TAGS.includes('plains')) throw new Error('Core terrain tags missing.');
-          if (!validateAdministrativeMap([{ ...badArea, parentId: null, terrainTags: ['not-a-terrain'] }], []).some((error) => error.includes('unknown terrain tag'))) throw new Error('Unknown terrain tag was not rejected.');
-          console.log('Administrative map schema and terrain tag validation passed.');
+          const expectedBiomes = ['forest', 'rainforest', 'grassland', 'savanna', 'desert', 'shrubland', 'tundra', 'wetland'];
+          if (BIOME_TAGS.length !== 8 || expectedBiomes.some((tag) => !BIOME_TAGS.includes(tag))) {
+            throw new Error('The eight simplified biome tags are missing.');
+          }
+          if (!TERRAIN_TAGS.includes('mountains') || !TERRAIN_TAGS.includes('coastal')) {
+            throw new Error('Terrain overlay tags are missing.');
+          }
+          if (!validateAdministrativeMap([{ ...badArea, parentId: null, terrainTags: ['not-a-terrain'] }], []).some((error) => error.includes('unknown terrain tag'))) {
+            throw new Error('Unknown terrain tag was not rejected.');
+          }
+          console.log('Administrative map schema and simplified biome validation passed.');
           NODE
       - name: Validate generated 258-country catalog
         run: node --input-type=module -e "import('./dist/nation-catalog.js').then(async ({ loadAdmin0NationCatalog }) => { const catalog = await loadAdmin0NationCatalog(); if (catalog.length !== 258 || catalog.some((nation) => !nation.isPlayable)) process.exit(1); console.log('Loaded ' + catalog.length + ' playable nations; ' + catalog.filter((nation) => nation.politicalStatus === 'puppet').length + ' puppet states.'); }).catch((error) => { console.error(error); process.exit(1); })"
