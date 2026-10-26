@@ -20,7 +20,7 @@ jobs:
       - name: Validate administrative map schema
         run: |
           node --input-type=module <<'NODE'
-          import { validateAdministrativeMap } from './dist/administrative-model.js';
+          import { TERRAIN_TAGS, validateAdministrativeMap } from './dist/administrative-model.js';
           if (validateAdministrativeMap([], []).length !== 0) {
             throw new Error('Empty administrative map should validate.');
           }
@@ -34,12 +34,15 @@ jobs:
             validFrom: null,
             validTo: null,
             provenance: { source: 'test', version: '1', sourceFeatureId: 'a', license: 'test' },
+            terrainTags: ['rainforest'],
             tags: []
           };
           if (!validateAdministrativeMap([badArea], []).some((error) => error.includes('unknown parent'))) {
             throw new Error('Unknown parent reference was not rejected.');
           }
-          console.log('Administrative map schema validation passed.');
+          if (!TERRAIN_TAGS.includes('rainforest') || !TERRAIN_TAGS.includes('desert') || !TERRAIN_TAGS.includes('plains')) throw new Error('Core terrain tags missing.');
+          if (!validateAdministrativeMap([{ ...badArea, parentId: null, terrainTags: ['not-a-terrain'] }], []).some((error) => error.includes('unknown terrain tag'))) throw new Error('Unknown terrain tag was not rejected.');
+          console.log('Administrative map schema and terrain tag validation passed.');
           NODE
       - name: Validate generated 258-country catalog
         run: node --input-type=module -e "import('./dist/nation-catalog.js').then(async ({ loadAdmin0NationCatalog }) => { const catalog = await loadAdmin0NationCatalog(); if (catalog.length !== 258 || catalog.some((nation) => !nation.isPlayable)) process.exit(1); console.log('Loaded ' + catalog.length + ' playable nations; ' + catalog.filter((nation) => nation.politicalStatus === 'puppet').length + ' puppet states.'); }).catch((error) => { console.error(error); process.exit(1); })"
