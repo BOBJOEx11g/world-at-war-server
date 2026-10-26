@@ -1,3 +1,7 @@
+import { feature } from "topojson-client";
+import worldAtlas from "world-atlas/countries-10m.json" with { type: "json" };
+import type { GeometryCollection, Topology } from "topojson-specification";
+import type { FeatureCollection, Geometry } from "geojson";
 import type { NationDefinition } from "./world-model.js";
 
 /** Minimal feature shape supplied by Natural Earth Admin 0 – Countries. */
@@ -141,3 +145,14 @@ export function buildAdmin0NationCatalog(
     };
   });
 }
+
+
+type CountryProperties = { name?: string; [key: string]: unknown };
+const admin0Topology = worldAtlas as unknown as Topology;
+const admin0Object = admin0Topology.objects["countries"] as GeometryCollection<CountryProperties>;
+const admin0Features = feature(admin0Topology, admin0Object) as FeatureCollection<Geometry, CountryProperties>;
+
+/** The server's canonical playable-nation catalog, generated from Natural Earth 1:10m Admin 0 – Countries. */
+export const ADMIN0_NATION_CATALOG = buildAdmin0NationCatalog(
+  admin0Features.features as Admin0CountryFeature[],
+);
