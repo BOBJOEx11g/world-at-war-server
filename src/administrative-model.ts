@@ -11,31 +11,37 @@ export type AdministrativeLevel =
   | "local"
   | "historical-region";
 
-/** Reusable terrain labels; gameplay modifiers will be implemented with troops. */
-export const TERRAIN_TAGS = [
+/**
+ * Eight broad biome categories, plus independent physical/strategic overlays.
+ * Biome and overlay tags can coexist (for example, forest + mountains).
+ */
+export const BIOME_TAGS = [
+  "forest",
   "rainforest",
-  "tropical-forest",
-  "temperate-forest",
-  "boreal-forest",
-  "woodland",
-  "plains",
   "grassland",
   "savanna",
   "desert",
-  "semi-arid",
-  "scrubland",
-  "wetlands",
-  "swamp",
-  "mountains",
-  "highlands",
-  "hills",
+  "shrubland",
   "tundra",
-  "ice-snow",
-  "coastal",
-  "riverine",
-  "urban",
+  "wetland",
 ] as const;
 
+export const TERRAIN_OVERLAY_TAGS = [
+  "mountains",
+  "hills",
+  "coastal",
+  "urban",
+  "riverine",
+  "ice-snow",
+] as const;
+
+export const TERRAIN_TAGS = [
+  ...BIOME_TAGS,
+  ...TERRAIN_OVERLAY_TAGS,
+] as const;
+
+export type BiomeTag = (typeof BIOME_TAGS)[number];
+export type TerrainOverlayTag = (typeof TERRAIN_OVERLAY_TAGS)[number];
 export type TerrainTag = (typeof TERRAIN_TAGS)[number];
 
 export interface DataProvenance {
@@ -74,7 +80,7 @@ export interface ProvinceMapRecord {
   administrativeAreaId: string | null;
   initialOwnerNationId: string | null;
   referenceDate: string;
-  /** One area may contain multiple terrain types; keep all applicable tags. */
+  /** A province can have one main biome plus independent terrain overlays. */
   terrainTags: TerrainTag[];
   isCoastal: boolean;
   strategicTags: string[];
@@ -82,7 +88,7 @@ export interface ProvinceMapRecord {
   provenance: DataProvenance;
 }
 
-const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
+const ISO_DATE = /^\\d{4}-\\d{2}-\\d{2}$/;
 const VALID_TERRAIN_TAGS = new Set<string>(TERRAIN_TAGS);
 
 function isValidDate(value: string): boolean {
