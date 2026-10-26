@@ -1,11 +1,13 @@
 import { createServer } from "node:http";
 import { WebSocket, WebSocketServer } from "ws";
-import { ADMIN0_NATION_CATALOG } from "./nation-catalog.js";
+import { loadAdmin0NationCatalog } from "./nation-catalog.js";
 import {
   isClientMessage,
   PROTOCOL_VERSION,
   type ServerMessage,
 } from "./protocol.js";
+
+const ADMIN0_NATION_CATALOG = await loadAdmin0NationCatalog();
 
 const host = process.env.HOST ?? "0.0.0.0";
 const port = Number(process.env.PORT ?? 3000);
