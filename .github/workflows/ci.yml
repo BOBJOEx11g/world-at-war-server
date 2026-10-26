@@ -41,7 +41,7 @@ jobs:
             throw new Error('Unknown parent reference was not rejected.');
           }
           const expectedBiomes = ['forest', 'rainforest', 'grassland', 'savanna', 'desert', 'shrubland', 'tundra', 'wetland'];
-          const actualBiomes = BIOME_TAGS as readonly string[];
+          const actualBiomes = [...BIOME_TAGS];
           if (actualBiomes.length !== 8 || expectedBiomes.some((tag) => !actualBiomes.includes(tag))) {
             throw new Error('The eight simplified biome tags are missing.');
           }
