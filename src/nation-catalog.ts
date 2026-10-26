@@ -1,7 +1,3 @@
-import { feature } from "topojson-client";
-import worldAtlas from "world-atlas/countries-10m.json" with { type: "json" };
-import type { GeometryCollection, Topology } from "topojson-specification";
-import type { FeatureCollection, Geometry } from "geojson";
 import type { NationDefinition } from "./world-model.js";
 
 /** Minimal feature shape supplied by Natural Earth Admin 0 – Countries. */
@@ -148,11 +144,44 @@ export function buildAdmin0NationCatalog(
 
 
 type CountryProperties = { name?: string; [key: string]: unknown };
-const admin0Topology = worldAtlas as unknown as Topology;
-const admin0Object = admin0Topology.objects["countries"] as GeometryCollection<CountryProperties>;
-const admin0Features = feature(admin0Topology, admin0Object) as FeatureCollection<Geometry, CountryProperties>;
 
-/** The server's canonical playable-nation catalog, generated from Natural Earth 1:10m Admin 0 – Countries. */
-export const ADMIN0_NATION_CATALOG = buildAdmin0NationCatalog(
-  admin0Features.features as Admin0CountryFeature[],
-);
+const ADMIN0_GEOJSON_URL =
+  "https://raw.githubusercontent.com/datasets/geo-countries/ca3b7150caa5d3cc3fb108a87fc6e3d57bd97d99/data/countries.geojson";
+
+function stableCountryId(name: string, properties: CountryProperties): string {
+  const iso3 = properties["ISO3166-1-Alpha-3"];
+  if (typeof iso3 === "string" && iso3.trim() && iso3 !== "-99") return iso3;
+  const slug = name
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "");
+  return `NE-${slug || "unknown"}`;
+}
+
+/** Load the pinned Natural Earth Admin 0 – Countries snapshot and build all 258 playable nation records. */
+export async function loadAdmin0NationCatalog(): Promise<NationDefinition[]> {
+  const response = await fetch(ADMIN0_GEOJSON_URL, {
+    headers: { accept: "application/geo+json, application/json" },
+  });
+  if (!response.ok) {
+    throw new Error(`Unable to load Natural Earth country data: HTTP ${response.status}`);
+  }
+  const dataset = (await response.json()) as {
+    type?: string;
+    features?: Array<{ id?: string | number; properties?: CountryProperties }>;
+  };
+  if (dataset.type !== "FeatureCollection" || !Array.isArray(dataset.features)) {
+    throw new Error("Natural Earth country data is not a GeoJSON FeatureCollection.");
+  }
+  const features: Admin0CountryFeature[] = dataset.features.map((feature) => {
+    const properties = feature.properties ?? {};
+    const name = typeof properties.name === "string" ? properties.name.trim() : "";
+    return {
+      id: stableCountryId(name, properties),
+      properties: { ...properties, name },
+    };
+  });
+  return buildAdmin0NationCatalog(features);
+}
