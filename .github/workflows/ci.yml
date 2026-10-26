@@ -18,4 +18,4 @@ jobs:
       - run: npm run typecheck
       - run: npm run build
       - name: Validate generated 258-country catalog
-        run: node --input-type=module -e "import('./dist/nation-catalog.js').then(({ ADMIN0_NATION_CATALOG }) => { if (ADMIN0_NATION_CATALOG.length !== 258 || ADMIN0_NATION_CATALOG.some((nation) => !nation.isPlayable)) process.exit(1); console.log('Loaded ' + ADMIN0_NATION_CATALOG.length + ' playable nations; ' + ADMIN0_NATION_CATALOG.filter((nation) => nation.politicalStatus === 'puppet').length + ' puppet states.'); }).catch((error) => { console.error(error); process.exit(1); })"
+        run: node --input-type=module -e "import('./dist/nation-catalog.js').then(async ({ loadAdmin0NationCatalog }) => { const catalog = await loadAdmin0NationCatalog(); if (catalog.length !== 258 || catalog.some((nation) => !nation.isPlayable)) process.exit(1); console.log('Loaded ' + catalog.length + ' playable nations; ' + catalog.filter((nation) => nation.politicalStatus === 'puppet').length + ' puppet states.'); }).catch((error) => { console.error(error); process.exit(1); })"
