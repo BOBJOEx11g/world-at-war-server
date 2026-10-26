@@ -60,7 +60,7 @@ const PARENT_NAME_BY_COUNTRY = new Map<string, string>(
     ["Turks and Caicos Islands", "United Kingdom"],
     ["United States Virgin Islands", "United States of America"],
     ["Wallis and Futuna", "France"],
-  ].map(([country, parent]) => [normalizeName(country), parent]),
+  ].map(([country, parent]) => [normalizeName(country), parent] as [string, string]),
 );
 
 const PARENT_ALIASES = new Map<string, string>([
