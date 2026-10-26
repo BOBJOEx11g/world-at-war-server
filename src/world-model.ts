@@ -26,10 +26,18 @@ export type NationController =
       offlineAiEnabled: boolean;
     };
 
+export type PoliticalStatus = "independent" | "puppet";
+
 export interface NationDefinition {
+  /** Stable Natural Earth Admin 0 feature ID (stringified numeric ID where available). */
   id: string;
   displayName: string;
   territoryKind: TerritoryKind;
+  /** Political parent, independent of ownership and player control. */
+  parentNationId: string | null;
+  politicalStatus: PoliticalStatus;
+  /** Political status never prevents a player from selecting this nation. */
+  isPlayable: boolean;
   capitalProvinceId: string | null;
   tags: string[];
 }
@@ -106,6 +114,20 @@ export function validateScenarioDefinition(
       errors.push(
         `Nation ${nation.id} refers to unknown capital province ${nation.capitalProvinceId}.`
       );
+    }
+    if (nation.parentNationId !== null && !nationIds.has(nation.parentNationId)) {
+      errors.push(
+        `Nation ${nation.id} refers to unknown parent nation ${nation.parentNationId}.`
+      );
+    }
+    if (nation.parentNationId === nation.id) {
+      errors.push(`Nation ${nation.id} cannot be its own parent.`);
+    }
+    if (nation.politicalStatus === "puppet" && nation.parentNationId === null) {
+      errors.push(`Puppet nation ${nation.id} must define a parentNationId.`);
+    }
+    if (nation.politicalStatus === "independent" && nation.parentNationId !== null) {
+      errors.push(`Independent nation ${nation.id} cannot define a parentNationId.`);
     }
   }
 
