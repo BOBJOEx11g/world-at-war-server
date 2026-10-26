@@ -111,7 +111,7 @@ export function buildAdmin0NationCatalog(
   for (const record of records) {
     if (ids.has(record.id)) throw new Error(`Duplicate Admin 0 feature ID: ${record.id}`);
     ids.add(record.id);
-    const normalizedName = normalizeName(record.displayName);
+    const normalizedName = resolveParentName(record.displayName);
     if (byName.has(normalizedName)) {
       throw new Error(`Duplicate Admin 0 country name: ${record.displayName}`);
     }
